@@ -1,4 +1,6 @@
-// A package for running jobs synchronized across multiple processes
+// A  package for running jobs synchronized across multiple processes
+os = Npm.require('os');
+
 SyncedCron = {
   _entries: {},
   running: false,
@@ -92,7 +94,7 @@ Meteor.startup(function() {
   if (options.collectionTTL) {
     if (options.collectionTTL > minTTL)
       SyncedCron._collection._ensureIndex({startedAt: 1 },
-        { expireAfterSeconds: options.collectionTTL } );
+          { expireAfterSeconds: options.collectionTTL } );
     else
       log.warn('Not going to use a TTL that is shorter than:' + minTTL);
   }
@@ -101,10 +103,10 @@ Meteor.startup(function() {
 var scheduleEntry = function(entry) {
   var schedule = entry.schedule(Later.parse);
   entry._timer =
-    SyncedCron._laterSetInterval(SyncedCron._entryWrapper(entry), schedule);
+      SyncedCron._laterSetInterval(SyncedCron._entryWrapper(entry), schedule);
 
   log.info('Scheduled "' + entry.name + '" next run @'
-    + Later.schedule(schedule).next(1));
+      + Later.schedule(schedule).next(1));
 }
 
 // add a scheduled job
@@ -198,11 +200,19 @@ SyncedCron._entryWrapper = function(entry) {
 
     var jobHistory;
 
+    // Call a hook, and possibly abort task on this machine
+    let hookResult;
+    if(entry.beforeRun) hookResult = entry['beforeRun'](entry);
+    if (hookResult && hookResult.abort){
+      return;
+    }
+
     if (entry.persist) {
       jobHistory = {
         intendedAt: intendedAt,
         name: entry.name,
-        startedAt: new Date()
+        startedAt: new Date(),
+        hostName: os.hostname()
       };
 
       // If we have a dup key error, another instance has already tried to run
@@ -271,9 +281,9 @@ SyncedCron._laterSetInterval = function(fn, sched) {
       done = false;
 
   /**
-  * Executes the specified function and then sets the timeout for the next
-  * interval.
-  */
+   * Executes the specified function and then sets the timeout for the next
+   * interval.
+   */
   function scheduleTimeout(intendedAt) {
     if(!done) {
       try {
@@ -289,8 +299,8 @@ SyncedCron._laterSetInterval = function(fn, sched) {
   return {
 
     /**
-    * Clears the timeout.
-    */
+     * Clears the timeout.
+     */
     clear: function() {
       done = true;
       t.clear();
@@ -307,10 +317,10 @@ SyncedCron._laterSetTimeout = function(fn, sched) {
   scheduleTimeout();
 
   /**
-  * Schedules the timeout to occur. If the next occurrence is greater than the
-  * max supported delay (2147483647 ms) than we delay for that amount before
-  * attempting to schedule the timeout again.
-  */
+   * Schedules the timeout to occur. If the next occurrence is greater than the
+   * max supported delay (2147483647 ms) than we delay for that amount before
+   * attempting to schedule the timeout again.
+   */
   function scheduleTimeout() {
     var now = Date.now(),
         next = s.next(2, now);
@@ -339,8 +349,8 @@ SyncedCron._laterSetTimeout = function(fn, sched) {
   return {
 
     /**
-    * Clears the timeout.
-    */
+     * Clears the timeout.
+     */
     clear: function() {
       Meteor.clearTimeout(t);
     }
